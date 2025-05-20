@@ -687,3 +687,379 @@ Główne zalety tej implementacji:
 6. **Minimalizacja kodu** - używanie bibliotek zewnętrznych i wzorców projektowych do ograniczenia ilości kodu
 
 Projekt został zaprojektowany z myślą o elastyczności i łatwości rozszerzania, dzięki czemu można go łatwo dostosować do różnych przypadków użycia i zintegrować z innymi systemami.
+
+
+
+Najpierw upewnij się, że jesteś w głównym katalogu projektu (tam gdzie znajduje się plik `pyproject.toml`), a następnie wykonaj pełną instalację za pomocą Poetry:
+
+```bash
+cd /home/tom/github/fin-officer/llm  # Jeśli nie jesteś już w tym katalogu
+poetry install
+```
+
+To polecenie powinno zainstalować wszystkie zależności określone w `pyproject.toml`, w tym moduł `typer`.
+
+## Krok 2: Aktywuj środowisko wirtualne Poetry
+
+Możliwe, że polecenie `poetry run` nie działa poprawnie, ponieważ środowisko wirtualne nie jest aktywne. Możesz najpierw aktywować środowisko:
+
+```bash
+poetry shell
+```
+
+A następnie uruchomić aplikację bezpośrednio:
+
+```bash
+python -m ollama_client.interfaces.shell.interactive --host http://localhost:11434
+```
+
+## Krok 3: Instalacja bezpośrednia brakujących zależności
+
+Jeśli powyższe kroki nie rozwiążą problemu, możesz zainstalować brakujące zależności bezpośrednio:
+
+```bash
+poetry add typer rich httpx websockets pydantic fastapi uvicorn python-dotenv
+```
+
+## Krok 4: Ręczne uruchomienie z pip
+
+Jeśli nadal występują problemy z Poetry, możesz użyć standardowego pip do instalacji zależności:
+
+```bash
+# Utwórz i aktywuj wirtualne środowisko
+python -m venv venv
+source venv/bin/activate
+
+# Zainstaluj zależności
+pip install typer rich httpx websockets pydantic fastapi uvicorn python-dotenv
+
+# Uruchom aplikację
+python -m ollama_client.interfaces.shell.interactive --host http://localhost:11434
+```
+
+## Krok 5: Sprawdź, czy Ollama jest uruchomiona
+
+Upewnij się, że serwer Ollama jest uruchomiony i dostępny pod adresem `http://localhost:11434`:
+
+```bash
+curl http://localhost:11434/api/health
+```
+
+Powinieneś otrzymać odpowiedź wskazującą, że serwer działa.
+
+## Krok 6: Debugowanie środowiska Poetry
+
+Jeśli nadal masz problemy, możesz sprawdzić konfigurację Poetry:
+
+```bash
+# Sprawdź wersję Poetry
+poetry --version
+
+# Sprawdź, gdzie Poetry tworzy środowiska wirtualne
+poetry config --list
+
+# Wyświetl informacje o środowisku
+poetry env info
+```
+
+## Alternatywne rozwiązanie: uruchomienie przez Docker
+
+Jeśli nadal występują problemy z lokalnym uruchomieniem, możesz użyć Dockera:
+
+2. Zbuduj i uruchom kontener:
+
+```bash
+docker build -t ollama-client .
+docker run -it --network host ollama-client
+```
+
+Na systemach Linux może być konieczne użycie flagi `--add-host=host.docker.internal:host-gateway` zamiast `--network host`.
+
+## Możliwe przyczyny problemu
+
+1. **Niekompletna instalacja Poetry** - Poetry może nie być prawidłowo skonfigurowane
+2. **Niepoprawny plik pyproject.toml** - Brakujące zależności w pliku konfiguracyjnym
+3. **Problemy z wirtualnym środowiskiem** - Poetry może tworzyć środowiska w nieoczekiwanych lokalizacjach
+4. **Wersja Pythona** - Zauważyłem, że używasz Pythona 3.13, który jest bardzo nową wersją - może to powodować problemy z kompatybilnością niektórych pakietów
+
+
+# Jak uruchomić projekt ollama-client
+
+Poniżej przedstawiam szczegółową instrukcję uruchomienia projektu ollama-client z wykorzystaniem różnych metod:
+
+## Wymagania wstępne
+
+1. Python 3.10 lub nowszy
+2. Poetry (narzędzie zarządzania zależnościami)
+3. Docker i Docker Compose (opcjonalnie)
+4. Dostęp do działającego serwera Ollama
+
+## Metoda 1: Uruchomienie lokalne z Poetry
+
+### Krok 1: Instalacja zależności
+
+```bash
+# Sklonuj repozytorium (zakładając, że kod jest w repozytorium git)
+git clone https://github.com/fin-officer/ollama-client.git
+cd ollama-client
+
+# Zainstaluj zależności za pomocą Poetry
+poetry install
+```
+
+### Krok 2: Uruchomienie różnych interfejsów
+
+#### Shell interaktywny:
+
+```bash
+# Uruchom shell interaktywny
+poetry run python -m ollama_client.interfaces.shell.interactive --host http://localhost:11434
+
+# Alternatywnie, jeśli dodałeś skrypty w pyproject.toml
+poetry run ollama-shell
+```
+
+#### REST API:
+
+```bash
+# Uruchom serwer REST API
+poetry run python -m ollama_client.interfaces.rest.app
+
+# Alternatywnie
+poetry run ollama-api
+```
+
+#### Adapter MCP:
+
+```bash
+# Uruchom adapter MCP
+poetry run python -m ollama_client.interfaces.mcp.adapter
+
+# Alternatywnie
+poetry run ollama-mcp
+```
+
+### Krok 3: Zmienne środowiskowe (opcjonalnie)
+
+Możesz skonfigurować zachowanie klienta za pomocą zmiennych środowiskowych:
+
+```bash
+# Ustawienie adresu serwera Ollama
+export OLLAMA_HOST=http://localhost:11434
+
+# Dla REST API
+export HOST=0.0.0.0
+export PORT=8000
+
+# Dla MCP
+export MCP_HOST=0.0.0.0
+export MCP_PORT=8080
+```
+
+## Metoda 2: Uruchomienie z Make (jeśli dołączono Makefile)
+
+### Krok 1: Instalacja zależności
+
+```bash
+make install
+```
+
+### Krok 2: Uruchomienie różnych interfejsów
+
+```bash
+# Shell interaktywny
+make shell
+
+# REST API
+make api
+
+# MCP adapter
+make mcp
+
+# Wszystkie interfejsy naraz
+make run-all
+```
+
+## Metoda 3: Uruchomienie z Docker Compose
+
+### Krok 1: Konfiguracja zmiennych środowiskowych
+
+Utwórz plik `.env` w katalogu głównym projektu:
+
+```
+OLLAMA_HOST=http://ollama:11434
+HOST=0.0.0.0
+PORT=8000
+MCP_HOST=0.0.0.0
+MCP_PORT=8080
+```
+
+### Krok 2: Uruchomienie usług
+
+```bash
+# Uruchom wszystkie usługi
+docker-compose up -d
+
+# Sprawdź logi
+docker-compose logs -f
+
+# Uruchom tylko wybraną usługę
+docker-compose up -d rest-api
+docker-compose up -d mcp-adapter
+docker-compose up -d shell-interface
+```
+
+### Krok 3: Zatrzymanie usług
+
+```bash
+docker-compose down
+```
+
+## Metoda 4: Uruchomienie z Ansible
+
+Jeśli chcesz zdeployować projekt na serwerze, możesz użyć przygotowanych playboków Ansible:
+
+```bash
+# Upewnij się, że masz zainstalowane Ansible
+pip install ansible
+
+# Deploy na serwerze produkcyjnym
+cd ansible
+ansible-playbook -i inventories/production/hosts.yml playbooks/deploy.yml
+
+# Uruchomienie testów
+ansible-playbook -i inventories/development/hosts.yml playbooks/test-shell.yml
+ansible-playbook -i inventories/development/hosts.yml playbooks/test-rest.yml
+ansible-playbook -i inventories/development/hosts.yml playbooks/test-mcp.yml
+```
+
+## Testowanie po uruchomieniu
+
+### Sprawdzanie REST API
+
+```bash
+# Sprawdź endpoint health
+curl http://localhost:8000/health
+
+# Lista modeli
+curl http://localhost:8000/models
+
+# Generowanie tekstu
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello, how are you?", "model": "llama3"}'
+
+# Chat
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello, how are you?"}], "model": "llama3"}'
+```
+
+### Testowanie adaptera MCP
+
+Możesz użyć prostego skryptu Pythona do testowania adaptera MCP:
+
+```python
+import asyncio
+import websockets
+import json
+
+async def test_mcp():
+    async with websockets.connect("ws://localhost:8080") as websocket:
+        # Otrzymaj listę narzędzi
+        response = await websocket.recv()
+        print("Otrzymane narzędzia:", json.loads(response))
+        
+        # Lista modeli
+        await websocket.send(json.dumps({
+            "id": "1",
+            "action": "list_models"
+        }))
+        
+        response = await websocket.recv()
+        print("Lista modeli:", json.loads(response))
+        
+        # Generowanie tekstu
+        await websocket.send(json.dumps({
+            "id": "2",
+            "action": "generate",
+            "prompt": "Hello, how are you?",
+            "model": "llama3"
+        }))
+        
+        response = await websocket.recv()
+        print("Generowanie tekstu:", json.loads(response))
+
+asyncio.run(test_mcp())
+```
+
+Zapisz ten skrypt jako `test_mcp.py` i uruchom:
+
+```bash
+python test_mcp.py
+```
+
+## Rozwiązywanie problemów
+
+### Problem z połączeniem do Ollama
+
+Jeśli widzisz błąd "Ollama is not running":
+
+1. Upewnij się, że serwer Ollama jest uruchomiony
+2. Sprawdź, czy adres `OLLAMA_HOST` jest poprawny
+3. Sprawdź, czy port 11434 jest otwarty
+
+```bash
+# Sprawdź, czy Ollama jest uruchomiona
+curl http://localhost:11434/api/health
+```
+
+### Problem z Docker Compose
+
+Jeśli masz problemy z uruchomieniem przez Docker Compose:
+
+1. Upewnij się, że Docker i Docker Compose są zainstalowane
+2. Sprawdź logi kontenerów
+3. Upewnij się, że porty nie są zajęte przez inne aplikacje
+
+```bash
+# Sprawdź status kontenerów
+docker-compose ps
+
+# Sprawdź logi
+docker-compose logs
+
+# Zatrzymaj i usuń kontenery
+docker-compose down
+
+# Przebuduj obrazy
+docker-compose build --no-cache
+```
+
+### Problemy z uprawnieniami
+
+Jeśli masz problemy z uprawnieniami w Dockerze:
+
+```bash
+# Napraw uprawnienia
+sudo chown -R $(id -u):$(id -g) .
+```
+
+## Używanie shell interaktywnego
+
+Po uruchomieniu shell interaktywnego, możesz używać następujących komend:
+
+```
+models                   # Lista dostępnych modeli
+model [nazwa_modelu]     # Zmień aktualny model
+query [tekst]            # Generowanie odpowiedzi na pojedyncze zapytanie
+chat [tekst]             # Tryb chat z historią konwersacji
+reset                    # Resetowanie historii konwersacji
+info                     # Informacje o sesji
+exit                     # Wyjście z shella
+```
+
+## Podsumowanie
+
+Projekt ollama-client oferuje elastyczne opcje uruchomienia, dzięki czemu możesz wybrać metodę najlepiej pasującą do twojego przypadku użycia. Niezależnie od tego, czy chcesz szybko przetestować klienta lokalnie, czy wdrożyć go w środowisku produkcyjnym, masz do dyspozycji odpowiednie narzędzia i konfiguracje.
+
