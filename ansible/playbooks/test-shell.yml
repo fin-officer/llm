@@ -1,0 +1,62 @@
+---
+- name: Test Ollama Shell Interface
+  hosts: all
+  become: false
+  vars:
+    ollama_host: "http://localhost:11434"
+  tasks:
+    - name: Check if Ollama is running
+      uri:
+        url: "{{ ollama_host }}/api/health"
+        method: GET
+      register: health_check
+      failed_when: health_check.status != 200
+      ignore_errors: true
+
+    - name: Print health check result
+      debug:
+        var: health_check
+
+    - name: Set up Python environment
+      pip:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - pexpect
+
+    - name: Test shell interface with basic commands
+      shell: |
+        python -c '
+import pexpect
+import sys
+
+child = pexpect.spawn("python -m ollama_client.interfaces.shell.interactive --host {{ ollama_host }}")
+child.expect("ollama>")
+
+# Test listing models
+child.sendline("models")
+child.expect("Available models:")
+child.expect("ollama>")
+
+# Test querying the model
+child.sendline("query Hello, how are you?")
+index = child.expect(["Error", "I\'m"])
+if index == 0:
+    print("Error querying model")
+    sys.exit(1)
+
+child.expect("ollama>")
+
+# Exit shell
+child.sendline("exit")
+child.expect(pexpect.EOF)
+
+print("Shell interface tests passed")
+sys.exit(0)
+        '
+      register: shell_test
+      failed_when: shell_test.rc != 0
+
+    - name: Print shell test result
+      debug:
+        var: shell_test.stdout_lines

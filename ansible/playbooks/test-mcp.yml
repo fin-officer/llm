@@ -1,0 +1,65 @@
+---
+- name: Test Ollama MCP Interface
+  hosts: all
+  become: false
+  vars:
+    mcp_host: "localhost"
+    mcp_port: 8080
+  tasks:
+    - name: Set up Python environment
+      pip:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - websockets
+        - asyncio
+
+    - name: Test MCP WebSocket connection
+      shell: |
+        python -c '
+import asyncio
+import websockets
+import json
+import sys
+
+async def test_mcp():
+    uri = f"ws://{{ mcp_host }}:{{ mcp_port }}"
+    async with websockets.connect(uri) as websocket:
+        # Test list_models
+        await websocket.send(json.dumps({
+            "id": "1",
+            "action": "list_models"
+        }))
+        
+        response = await websocket.recv()
+        data = json.loads(response)
+        if "error" in data:
+            print(f"Error in list_models: {data[\"error\"]}")
+            return False
+        
+        # Test generate
+        await websocket.send(json.dumps({
+            "id": "2",
+            "action": "generate",
+            "prompt": "Hello, how are you?",
+            "model": "llama3"
+        }))
+        
+        response = await websocket.recv()
+        data = json.loads(response)
+        if "error" in data:
+            print(f"Error in generate: {data[\"error\"]}")
+            return False
+        
+        print("MCP tests passed")
+        return True
+
+result = asyncio.run(test_mcp())
+sys.exit(0 if result else 1)
+        '
+      register: mcp_test
+      failed_when: mcp_test.rc != 0
+
+    - name: Print MCP test result
+      debug:
+        var: mcp_test.stdout_lines
