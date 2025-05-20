@@ -5,7 +5,20 @@
   vars:
     mcp_host: "localhost"
     mcp_port: 8080
+    ollama_host: "http://localhost:11434"
   tasks:
+    - name: Check if Ollama is running
+      uri:
+        url: "{{ ollama_host }}/api/health"
+        method: GET
+      register: health_check
+      failed_when: health_check.status != 200
+      ignore_errors: true
+
+    - name: Print Ollama health check result
+      debug:
+        var: health_check
+
     - name: Set up Python environment
       pip:
         name: "{{ item }}"
@@ -21,38 +34,102 @@ import asyncio
 import websockets
 import json
 import sys
+import time
 
 async def test_mcp():
     uri = f"ws://{{ mcp_host }}:{{ mcp_port }}"
-    async with websockets.connect(uri) as websocket:
-        # Test list_models
-        await websocket.send(json.dumps({
-            "id": "1",
-            "action": "list_models"
-        }))
-        
-        response = await websocket.recv()
-        data = json.loads(response)
-        if "error" in data:
-            print(f"Error in list_models: {data[\"error\"]}")
-            return False
-        
-        # Test generate
-        await websocket.send(json.dumps({
-            "id": "2",
-            "action": "generate",
-            "prompt": "Hello, how are you?",
-            "model": "llama3"
-        }))
-        
-        response = await websocket.recv()
-        data = json.loads(response)
-        if "error" in data:
-            print(f"Error in generate: {data[\"error\"]}")
-            return False
-        
-        print("MCP tests passed")
-        return True
+    try:
+        async with websockets.connect(uri) as websocket:
+            # Receive tools message on connection
+            response = await websocket.recv()
+            data = json.loads(response)
+            if "type" not in data or data["type"] != "tools":
+                print(f"Expected tools message, got: {data}")
+                return False
+            
+            print("Successfully received tools")
+
+            # Test list_models
+            await websocket.send(json.dumps({
+                "id": "1",
+                "action": "list_models"
+            }))
+            
+            response = await websocket.recv()
+            data = json.loads(response)
+            if "error" in data:
+                print(f"Error in list_models: {data.get(\"error\")}")
+                return False
+                
+            if "id" not in data or data["id"] != "1":
+                print(f"Invalid response for list_models: {data}")
+                return False
+            
+            if "result" not in data or "models" not in data["result"]:
+                print(f"Invalid result format for list_models: {data}")
+                return False
+            
+            print(f"Successfully listed {len(data[\"result\"][\"models\"])} models")
+
+            # Test generate
+            await websocket.send(json.dumps({
+                "id": "2",
+                "action": "generate",
+                "prompt": "Hello, how are you?",
+                "model": "llama3",
+                "temperature": 0.7,
+                "max_tokens": 100
+            }))
+            
+            response = await websocket.recv()
+            data = json.loads(response)
+            if "error" in data:
+                print(f"Error in generate: {data.get(\"error\")}")
+                return False
+                
+            if "id" not in data or data["id"] != "2":
+                print(f"Invalid response for generate: {data}")
+                return False
+            
+            if "result" not in data or "text" not in data["result"]:
+                print(f"Invalid result format for generate: {data}")
+                return False
+            
+            print("Successfully generated text")
+
+            # Test chat
+            await websocket.send(json.dumps({
+                "id": "3",
+                "action": "chat",
+                "messages": [
+                    {"role": "user", "content": "Tell me a short joke"}
+                ],
+                "model": "llama3",
+                "temperature": 0.7,
+                "max_tokens": 100
+            }))
+            
+            response = await websocket.recv()
+            data = json.loads(response)
+            if "error" in data:
+                print(f"Error in chat: {data.get(\"error\")}")
+                return False
+                
+            if "id" not in data or data["id"] != "3":
+                print(f"Invalid response for chat: {data}")
+                return False
+            
+            if "result" not in data or "message" not in data["result"]:
+                print(f"Invalid result format for chat: {data}")
+                return False
+            
+            print("Successfully chatted with the model")
+
+            print("MCP tests passed")
+            return True
+    except Exception as e:
+        print(f"Error connecting to MCP: {e}")
+        return False
 
 result = asyncio.run(test_mcp())
 sys.exit(0 if result else 1)
@@ -60,6 +137,6 @@ sys.exit(0 if result else 1)
       register: mcp_test
       failed_when: mcp_test.rc != 0
 
-    - name: Print MCP test result
+    - name: Print MCP test results
       debug:
         var: mcp_test.stdout_lines

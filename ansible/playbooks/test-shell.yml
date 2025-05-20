@@ -24,27 +24,55 @@
       loop:
         - pexpect
 
-    - name: Test shell interface with basic commands
+    - name: Test shell interface basic commands
       shell: |
         python -c '
 import pexpect
 import sys
+import time
 
+# Start shell interface
 child = pexpect.spawn("python -m ollama_client.interfaces.shell.interactive --host {{ ollama_host }}")
 child.expect("ollama>")
 
-# Test listing models
+# Test models command
 child.sendline("models")
-child.expect("Available models:")
+index = child.expect(["Available Models", "Error"])
+if index == 1:
+    print("Error listing models")
+    sys.exit(1)
 child.expect("ollama>")
 
-# Test querying the model
+# Test info command
+child.sendline("info")
+child.expect("Ollama Session Info")
+child.expect("ollama>")
+
+# Test simple query
 child.sendline("query Hello, how are you?")
-index = child.expect(["Error", "I\'m"])
-if index == 0:
-    print("Error querying model")
+index = child.expect(["Generating response", "Error"])
+if index == 1:
+    print("Error sending query")
     sys.exit(1)
 
+# Wait for response to complete (may take time for LLM to respond)
+time.sleep(5)
+child.expect("ollama>", timeout=60)
+
+# Test chat mode
+child.sendline("chat Tell me a short joke")
+index = child.expect(["Thinking", "Error"])
+if index == 1:
+    print("Error in chat mode")
+    sys.exit(1)
+
+# Wait for response to complete
+time.sleep(5)
+child.expect("ollama>", timeout=60)
+
+# Test resetting chat
+child.sendline("reset")
+child.expect("Conversation history has been reset")
 child.expect("ollama>")
 
 # Exit shell
@@ -57,6 +85,6 @@ sys.exit(0)
       register: shell_test
       failed_when: shell_test.rc != 0
 
-    - name: Print shell test result
+    - name: Print shell test results
       debug:
         var: shell_test.stdout_lines
